@@ -1,0 +1,30 @@
+#Diagrama UML
+title Diagrama UML - Sistema de Gestión de Cumpleaños
+
+class InicioSistema {
+  - Registro: dict
+  - correo_remitente: str
+  - contrasena_remitente: str
+  - username: str
+  + inicio(): void
+  + datos_usuario(): tuple
+  + guardar_usuario(usuario: str, contrasena: str): void
+  + verificar_usuario(csv_filename: str, username: str, password: str): bool
+}
+
+class GestionCumpleanos {
+  - cumpleanos: list<dict>
+  + registrar_cumpleanos(): dict
+  + guardar_cumpleanos(cumpleanos: list<dict>, username: str): void
+  + cargar_cumpleanos(username: str): list<dict>
+  + mostrar_cumpleanos(cumpleanos: list<dict>): void
+  + dias_hasta_cumpleanos(fecha_nacimiento: datetime): tuple
+}
+
+class Correo {
+  + enviar_felicitaciones(correo_remitente: str, contrasena_remitente: str, correo_cumpleanero: str, nombre: str): void
+}
+
+InicioSistema --> GestionCumpleanos: "Gestiona usuarios y cumpleaños"
+InicioSistema ..> Correo: "Usa para enviar felicitaciones"
+GestionCumpleanos --> Correo: "Usa para envío automático"

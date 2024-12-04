@@ -1,0 +1,273 @@
+#@title CODIGO PROYECTO FELICITACIONES
+
+import getpass
+from datetime import datetime, timedelta
+from IPython.display import clear_output
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import csv
+import os
+
+#Lista vacia para agregar y almacenar usuarios
+Registro = {}
+
+#Menu de inicio
+def inicio():
+  while True:
+    print('''Bienvenido a CongratsCards\n
+¿Que accion desea realizar?\n''')
+
+    menu = str(input('''
+1.Registrarme
+2.Acceder a mi cuenta
+'''))
+    match menu:
+  #Opcion  "Registrarme"
+      case '1':
+        print("\nTu nombre de usuario sera necesario para volver a iniciar sesion, no lo olvides.\n")
+        usuario = input("Ingresa tu nombre de usuario.\n")
+
+    #Se verifica con la lista de "Registrados" para asegurar que no se encuentre dentro
+
+        if usuario in Registro:
+          print("Ese usuario ya existe, Accede a tu cuenta o elije otro nombre de usuario")
+          clear_output()
+          inicio() #Si se encuentra registrado el programa le pedira al usuario que acceda o que ingrese un usuario diferente, lo regresara a la pagina de inicio para que realice una nueva eleccion.
+        contrasenia = getpass.getpass("\nTu contraseña sera necesaria para volver a iniciar sesion.\nIngresa tu contraseña\n\n")
+        contrasenia_verificacion = getpass.getpass("\nVerifica tu contraseña. \nVuelve a escribir tu contraseña:\n\n")
+        if contrasenia != contrasenia_verificacion:
+          print("Tus contraseñas no coinciden, intentalo de nuevo.")
+          clear_output()
+          inicio()
+        else: #Si el usuario registro su contraseña correctamente, sera vinculada con su nombre de usuario.
+          Registro[usuario] = contrasenia
+          print("Tu cuenta ha sido creada con exito.") #Despues de crear una cuenta, el usuario sera regresado al inicio para escoja entre ingresar o bien, crear un nuevo usuario
+          guardar_usuario(usuario, contrasenia)
+          datos_usuario()
+          clear_output()
+   #Opcion "Acceder"
+      case '2':
+        csv_filename = 'usuarios.csv'  #Nombre del archivo CSV
+        global username
+        username = input("\nIngresa tu nombre de usuario: \n")
+        password = getpass.getpass("\nIngresa tu contraseña: \n")
+
+        if verificar_usuario(csv_filename, username, password):
+          print("¡Acceso concedido!")
+          clear_output()
+          break
+        else:
+          print("Usuario o contraseña incorrectos.")
+          inicio()
+
+def datos_usuario():
+  global correo_remitente
+  correo_remitente = input("\nIngresa tu correo electronico: ")
+  global contrasena_remitente
+  contrasena_remitente =input("\nIngresa a https://myaccount.google.com/apppasswords . \nObten una contraseña especial, de lo contrario nos sera imposible enviar tus felicitaciones.\n")
+  return correo_remitente, contrasena_remitente
+
+def enviar_felicitaciones(correo_remitente, contrasena_remitente,correo_cumpleanero, nombre):
+   #Configurar el servidor SMTP y los detalles del correo
+    servidor_smtp = 'smtp.gmail.com'  #Ejemplo con Gmail
+    puerto_smtp = 587
+    usuario_smtp = correo_remitente #Cambia por tu correo de envío
+    contrasena_smtp = contrasena_remitente
+    #Crear el mensaje de correo
+    asunto = f'¡Feliz Cumpleaños {nombre}!🎉🎉🎉'
+    cuerpo = mensaje_personalizado
+
+    mensaje = MIMEMultipart()
+    mensaje['From'] = usuario_smtp
+    mensaje['To'] = correo_cumpleanero
+    mensaje['Subject'] = asunto
+    mensaje.attach(MIMEText(cuerpo, 'plain'))
+    #Enviar el correo electrónico
+    try:
+        with smtplib.SMTP(servidor_smtp, puerto_smtp) as server:
+            server.starttls()
+            server.login(usuario_smtp, contrasena_smtp)
+            server.sendmail(usuario_smtp, correo_cumpleanero, mensaje.as_string())
+        print(f"Correo de felicitación enviado a {correo_cumpleanero}.")
+    except Exception as e:
+        print(f"Error al enviar el correo: {e}")
+
+
+
+def verificar_usuario(csv_filename, username, password):
+    try:
+        with open(csv_filename, mode='r', newline='') as file:
+            reader = csv.reader(file)
+
+            for row in reader:
+                if len(row) >= 2:  #Verifica que haya al menos dos columnas (usuario y contraseña)
+                    user, stored_password = row[0], row[1]
+                    if user == username:
+                        if stored_password == password:
+                            return True  #El usuario existe y la contraseña es correcta
+                        else:
+                            return False  #Contraseña incorrecta
+            return False  #El usuario no existe
+    except FileNotFoundError:
+        print(f"Error: El archivo '{csv_filename}' no existe.")
+        return False
+#Guardamos el usuaio y contraseña en un arcivo csv
+def guardar_usuario(usuario, contrasenia, archivo='usuarios.csv'):
+        with open(archivo, 'a', newline='') as f:
+            #Definimos los nombres de las columnas
+            fieldnames = ['usuario', 'contrasena']
+            #Crear un escritor CSV
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            #Si el archivo esta vacio, escribimos la cabecera
+            if f.tell() == 0:
+                writer.writeheader()
+
+            #Escribir los datos del usuario
+            writer.writerow({'usuario': usuario, 'contrasena': contrasenia})
+
+#Funcion para guardar los cumpleaños en un archivo CSV
+def guardar_cumpleanos(cumpleanos, username):
+    #Crear nombre de archivo basado en el nombre de usuario
+    archivo_usuario = f"{username}_cumpleanos.csv"
+    #Verificar si el archivo ya existe
+    if os.path.exists(archivo_usuario):
+        print(f"La lista de cumpleaños para {username} se actualizará.")
+    else:
+        print(f"Creando una lista para {username}...")
+    #Preparamos los datos a guardar, convirtiendo las fechas en formato de char
+    cumpleanos_serializable = [
+        {
+            "nombre": cumpleano['nombre'],
+            "fecha_nacimiento": cumpleano['fecha_nacimiento'].strftime("%d/%m/%Y") if isinstance(cumpleano['fecha_nacimiento'], datetime) else cumpleano['fecha_nacimiento'],
+            "Correo": cumpleano['correo_cumpleanero'],
+            "mensaje_personalizado": cumpleano['mensaje_personalizado']
+        }
+        for cumpleano in cumpleanos
+    ]
+
+    with open(archivo_usuario, 'w', newline='') as f:
+        #Definir los nombres de las columnas
+        fieldnames = ['nombre', 'fecha_nacimiento', 'Correo', 'mensaje_personalizado']
+            #Crear un escritor CSV
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+            #Escribir los nombres de columna
+        writer.writeheader()
+
+            #Escribir las filas con los cumpleaños
+        for cumpleano in cumpleanos_serializable:
+            writer.writerow(cumpleano)
+
+#Funcion para cargar los cumpleaños desde un archivo CSV
+def cargar_cumpleanos(username):
+    archivo_usuario = f"{username}_cumpleanos.csv"
+    try:
+        with open(archivo_usuario, 'r') as f:
+            #Crear un lector CSV
+            reader = csv.DictReader(f)
+            cumpleanos = []
+            for row in reader:
+                #Convertir 'fecha_nacimiento' de vuelta a un objeto datetime
+                row['fecha_nacimiento'] = datetime.strptime(row['fecha_nacimiento'], "%d/%m/%Y")
+                cumpleanos.append(row)
+            return cumpleanos
+    except FileNotFoundError:
+        return []
+    except csv.Error:
+        #Si hay error al leer el archivo CSV, se devuelve una lista vacia
+        print("\nLista vacia. Intente registrar un cumpleaños.\n\n")
+        return []
+
+
+#Funcion para registrar un nuevo cumpleaños
+def registrar_cumpleanos():
+    global nombre
+    nombre = input("Ingrese el nombre de la persona: ")
+    fecha_nacimiento = input("\nIngrese la fecha de nacimiento (dd/mm/yyyy): ")#Se recopilan los datos
+    global correo_cumpleanero
+    correo_cumpleanero = input("\nIngrese el correo del cumpleañero. Solo direcciones gmail: \n")
+    global mensaje_personalizado
+    mensaje_personalizado = input("\nIngrese un mesaje de felicitaciones para el cumpleañero: \n\n")
+    try:
+        fecha_nacimiento = datetime.strptime(fecha_nacimiento, "%d/%m/%Y")#Se limitan las resouestas al formato de dia/mes/año
+        return {"nombre": nombre, "fecha_nacimiento": fecha_nacimiento, "mensaje_personalizado": mensaje_personalizado, "correo_cumpleanero": correo_cumpleanero}   #Se guardan los datos
+    except ValueError:
+        print("\nFecha inválida. El formato correcto es dd/mm/yyyy.")
+        clear_output()
+        return None
+
+#Funcion para calcular los dias hasta el proximo cumpleaños
+def dias_hasta_cumpleanos(fecha_nacimiento):
+    hoy = datetime.today()
+    proximo_cumpleanos = fecha_nacimiento.replace(year=hoy.year)
+
+    #Si el cumpleaños ya pasó este año, lo ajustamos para el proximo año
+    if proximo_cumpleanos < hoy:
+        proximo_cumpleanos = proximo_cumpleanos.replace(year=hoy.year + 1)
+                        #Si es el cumpleaños hoy, enviar felicitacion
+    dias_restantes = (proximo_cumpleanos - hoy).days
+    return dias_restantes, proximo_cumpleanos.year
+
+    if dias_restantes == 0:
+      enviar_felicitaciones(correo_remitente, contrasena_remitente, correo_cumpleanero, nombre)
+
+#Funcion para mostrar los cumpleaños proximos y su cuenta regresiva
+def mostrar_cumpleanos(cumpleanos):
+    hoy = datetime.today()
+    cumpleanos_proximos = []
+
+    for cumpleano in cumpleanos:
+        nombre = cumpleano['nombre']
+        fecha_nacimiento = cumpleano['fecha_nacimiento']
+        mensaje_personalizado = cumpleano['mensaje_personalizado']
+        dias_restantes, anio = dias_hasta_cumpleanos(fecha_nacimiento)
+
+        if dias_restantes == 0:
+            print(f"\n¡Hoy es el cumpleaños de {nombre}!")
+            print(f"Su fecha de nacimiento es: {fecha_nacimiento.strftime('%d/%m/%Y')}.")
+            print(f"su mensaje predeterminado es: \n{cumpleano['mensaje_personalizado']}")
+        else:
+            print(f"\nFaltan {dias_restantes} días para el cumpleaños de {nombre} ({anio})")
+            print(f"Su fecha de nacimiento es: {fecha_nacimiento.strftime('%d/%m/%Y')}.")
+            print(f"Su mensaje predeterminado es: \n{cumpleano['mensaje_personalizado']}")
+
+# Funcion principal
+def main():
+    cumpleanos = cargar_cumpleanos(username)
+    clear_output()
+    while True:
+        print("\n1. Registrar nuevo cumpleaños")
+        print("2. Mostrar cuenta regresiva para cumpleaños")
+        print("3. Volver a menu principal")
+        print("4. Salir")
+        opcion = input("\nElija una opción: ")
+        clear_output()
+        if opcion == "1":
+            nuevo_cumpleano = registrar_cumpleanos()
+            if nuevo_cumpleano:
+                cumpleanos.append(nuevo_cumpleano)
+                guardar_cumpleanos(cumpleanos, username)
+                print(f"\nCumpleaños de {nuevo_cumpleano['nombre']} registrado exitosamente.")
+        elif opcion == "2":
+            if cumpleanos:
+                mostrar_cumpleanos(cumpleanos)
+                enviar_felicitaciones(correo_remitente, contrasena_remitente, correo_cumpleanero, nombre)
+            else:
+                print("No hay cumpleaños registrados.")
+        elif opcion == "3":
+          print("Volviendo a menu principal.")
+          clear_output()
+          inicio()
+        elif opcion == "4":
+            clear_output()
+            print("¡Hasta luego!")
+            break
+
+        else:
+            clear_output()
+            print("Opción no válida, intente nuevamente.")
+
+print(datetime.today())
+print("\n\n")
+inicio()
+main()
